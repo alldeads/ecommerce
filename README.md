@@ -2,14 +2,62 @@
 
 A Laravel-based e-commerce system with 3 microservices architecture: Catalog, Checkout, and Email services.
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Quick Start with Docker](#quick-start-with-docker)
+- [Local Development Setup](#local-development-setup)
+- [Provisioning & Deployment](#provisioning--deployment)
+- [Architecture Overview](#architecture-overview)
+- [Testing](#testing)
+- [API Documentation](#api-documentation)
+- [Troubleshooting](#troubleshooting)
+
+## Prerequisites
+
+### For Docker Setup (Recommended)
+
+- **Docker Desktop** (v20.10 or higher)
+    - Download: https://www.docker.com/products/docker-desktop
+    - Includes Docker Compose
+- **Git** for version control
+- **Minimum System Requirements**:
+    - 4GB RAM
+    - 10GB free disk space
+    - macOS, Windows 10/11, or Linux
+
+### For Local Development (Without Docker)
+
+- **PHP** 8.3 or higher
+    - Extensions: pdo_mysql, mbstring, exif, pcntl, bcmath, gd
+- **Composer** (v2.0 or higher)
+- **Node.js** 16.x or higher & npm
+- **MySQL** 8.0 or higher
+- **Redis** (optional, for caching and queues)
+- **Git**
+
+### Verification Commands
+
+```bash
+# Check Docker
+docker --version
+docker compose version
+
+# Check PHP (for local setup)
+php --version
+composer --version
+
+# Check Node.js
+node --version
+npm --version
+
+# Check MySQL (for local setup)
+mysql --version
+```
+
 ## Quick Start with Docker
 
 The easiest way to run this project is using Docker. Everything is containerized and ready to go!
-
-### Prerequisites
-
-- Docker Desktop installed on your machine
-- Docker Compose (included with Docker Desktop)
 
 ### Running the Application
 
@@ -54,6 +102,14 @@ The easiest way to run this project is using Docker. Everything is containerized
     - **Database**: localhost:3307 (MySQL)
     - **Default Login**: test@example.com / password
 
+5. **Run tests (optional)**
+
+    ```bash
+    docker compose exec app php artisan test
+    ```
+
+    Expected result: All 48 tests should pass ✅
+
 ### Useful Docker Commands
 
 ```bash
@@ -81,6 +137,9 @@ docker compose exec db mysql -u root -p
 
 # Access container shell
 docker compose exec app bash
+
+# Run tests
+docker compose exec app php artisan test
 ```
 
 ### Environment Configuration
@@ -279,14 +338,14 @@ See the [Quick Start with Docker](#quick-start-with-docker) section at the top o
 
 ### Option 2: Local Development (Without Docker)
 
-### 1. Install Dependencies
+#### 1. Install Dependencies
 
 ```bash
 composer install
 npm install
 ```
 
-### 2. Configure Environment
+#### 2. Configure Environment
 
 Copy `.env.example` to `.env` and configure:
 
@@ -338,6 +397,104 @@ For local development, use MailHog or Laravel Log:
 ```env
 MAIL_MAILER=log
 ```
+
+## Provisioning & Deployment
+
+### Docker Production Deployment
+
+#### 1. Prepare Production Environment
+
+```bash
+# Clone repository
+git clone <repository-url>
+cd ecommerce
+
+# Copy and configure production environment
+cp .env.docker .env
+nano .env  # Update production settings
+```
+
+#### 2. Configure Production Settings
+
+Update the following in `.env`:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+
+# Use strong random key
+APP_KEY=base64:GENERATE_WITH_php_artisan_key:generate
+
+# Production database
+DB_HOST=your-db-host
+DB_DATABASE=your-db-name
+DB_USERNAME=your-db-user
+DB_PASSWORD=your-secure-password
+
+# Production mail settings
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=587
+MAIL_USERNAME=your-username
+MAIL_PASSWORD=your-password
+MAIL_ENCRYPTION=tls
+```
+
+#### 3. Build and Deploy
+
+```bash
+# Build optimized Docker images
+docker compose -f docker-compose.yml build --no-cache
+
+# Start services
+docker compose up -d
+
+# Run migrations and seed
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --force
+
+# Cache configurations for performance
+docker compose exec app php artisan config:cache
+docker compose exec app php artisan route:cache
+docker compose exec app php artisan view:cache
+```
+
+#### 4. SSL/HTTPS Setup
+
+For production, configure SSL certificates in your nginx configuration:
+
+```bash
+# Edit nginx config to include SSL
+docker compose exec nginx nano /etc/nginx/conf.d/default.conf
+```
+
+### AWS EC2 Deployment
+
+A sample CloudFormation template is provided in `laravel-ec2.yaml` for deploying to AWS EC2.
+
+```bash
+# Deploy to AWS using CloudFormation
+aws cloudformation create-stack \
+  --stack-name ecommerce-app \
+  --template-body file://laravel-ec2.yaml \
+  --parameters ParameterKey=KeyName,ParameterValue=your-key-pair
+```
+
+### Environment Variables Reference
+
+| Variable           | Description                                | Default                    |
+| ------------------ | ------------------------------------------ | -------------------------- |
+| `APP_ENV`          | Application environment (local/production) | local                      |
+| `APP_DEBUG`        | Enable debug mode                          | true                       |
+| `APP_URL`          | Application URL                            | http://localhost:8000      |
+| `DB_CONNECTION`    | Database driver                            | mysql                      |
+| `DB_HOST`          | Database host                              | db (Docker) / 127.0.0.1    |
+| `DB_PORT`          | Database port                              | 3306                       |
+| `DB_DATABASE`      | Database name                              | ecommerce                  |
+| `REDIS_HOST`       | Redis host                                 | redis (Docker) / 127.0.0.1 |
+| `MAIL_MAILER`      | Mail driver                                | smtp                       |
+| `QUEUE_CONNECTION` | Queue driver                               | redis                      |
 
 ## Testing the API
 
@@ -416,19 +573,260 @@ All tests validate:
 
 ## Testing
 
-Run the full test suite:
+The application includes a comprehensive test suite covering all functionality.
+
+### Running Tests with Docker
 
 ```bash
+# Run all tests
+docker compose exec app php artisan test
+
+# Run specific test suite
+docker compose exec app php artisan test --filter MicroservicesTest
+
+# Run with code coverage
+docker compose exec app php artisan test --coverage
+```
+
+### Running Tests Locally
+
+```bash
+# Run all tests
+php artisan test
+
+# Run specific test suite
 php artisan test --filter MicroservicesTest
 ```
 
-All 9 tests pass, covering:
+### Test Coverage
 
-- Catalog service product listing and details
-- Checkout service order creation and validation
-- Email service order confirmation
-- Authentication and authorization
-- Stock management
+**Total: 48 tests passing** ✅
+
+#### E-commerce Microservices Tests (9 tests)
+
+- ✓ Catalog service can list all products
+- ✓ Catalog service can show single product
+- ✓ Catalog service can search products
+- ✓ Checkout service requires authentication
+- ✓ Checkout service can create order
+- ✓ Checkout service validates stock availability
+- ✓ Checkout service can list user orders
+- ✓ Checkout service prevents accessing other users orders
+- ✓ Email service sends confirmation on order creation
+
+#### Authentication & Settings Tests (39 tests)
+
+- Login, Registration, Logout (6 tests)
+- Email Verification (6 tests)
+- Password Confirmation (2 tests)
+- Password Reset (5 tests)
+- Two-Factor Authentication (4 tests)
+- Profile & Settings Management (16 tests)
+
+All tests validate:
+
+- ✅ Catalog service product listing and details
+- ✅ Checkout service order creation and validation
+- ✅ Email service order confirmation
+- ✅ Authentication and authorization
+- ✅ Stock management
+- ✅ User account management
+- ✅ Security features (2FA, password reset)
+
+## Troubleshooting
+
+### Docker Issues
+
+#### Containers won't start
+
+```bash
+# Check if ports are already in use
+lsof -i :8000  # Web server
+lsof -i :3307  # MySQL
+lsof -i :6379  # Redis
+
+# View detailed logs
+docker compose logs app
+docker compose logs db
+docker compose logs nginx
+
+# Remove all containers and start fresh
+docker compose down -v
+docker compose up -d
+```
+
+#### Permission issues
+
+```bash
+# Fix file permissions in container
+docker compose exec app chown -R www-data:www-data /var/www/html/storage
+docker compose exec app chown -R www-data:www-data /var/www/html/bootstrap/cache
+docker compose exec app chmod -R 775 /var/www/html/storage
+docker compose exec app chmod -R 775 /var/www/html/bootstrap/cache
+```
+
+#### Database connection issues
+
+```bash
+# Check if MySQL is running
+docker compose ps db
+
+# Check MySQL logs
+docker compose logs db
+
+# Verify .env.docker settings
+cat .env.docker | grep DB_
+
+# Test connection manually
+docker compose exec db mysql -u root -p
+```
+
+#### Frontend build issues
+
+```bash
+# Clear node_modules and reinstall
+docker compose exec app rm -rf node_modules package-lock.json
+docker compose exec app npm install
+docker compose exec app npm run build
+
+# Check for Node.js version issues
+docker compose exec app node --version  # Should be v16.x or higher
+```
+
+### Local Development Issues
+
+#### Composer dependency conflicts
+
+```bash
+# Clear composer cache
+composer clear-cache
+
+# Remove vendor and reinstall
+rm -rf vendor composer.lock
+composer install
+```
+
+#### Database migration errors
+
+```bash
+# Reset database completely
+php artisan migrate:fresh --seed
+
+# Check migration status
+php artisan migrate:status
+
+# Rollback and re-run specific migration
+php artisan migrate:rollback --step=1
+php artisan migrate
+```
+
+#### Port already in use
+
+```bash
+# For macOS/Linux - find and kill process using port 8000
+lsof -ti:8000 | xargs kill -9
+
+# Use different port
+php artisan serve --port=8001
+```
+
+#### NPM build failures
+
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Remove and reinstall
+rm -rf node_modules package-lock.json
+npm install
+
+# Check Node.js version
+node --version  # Should be v16.x or higher
+nvm use 16  # If using nvm
+```
+
+### Common Application Issues
+
+#### 500 Internal Server Error
+
+```bash
+# Check Laravel logs
+tail -f storage/logs/laravel.log
+
+# Clear all caches
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+
+# Generate application key if missing
+php artisan key:generate
+```
+
+#### Session/Authentication issues
+
+```bash
+# Clear session data
+php artisan session:clear
+
+# Check session driver in .env
+# SESSION_DRIVER=file (or redis for production)
+
+# Ensure storage/framework/sessions is writable
+chmod -R 775 storage/
+```
+
+#### Email not sending
+
+```bash
+# Check mail configuration
+php artisan config:clear
+
+# Test mail locally with log driver
+# In .env: MAIL_MAILER=log
+# Check storage/logs/laravel.log for email content
+
+# For MailHog (Docker)
+# Access: http://localhost:8025
+```
+
+#### Queue jobs not processing
+
+```bash
+# Start queue worker
+php artisan queue:work
+
+# Or with Docker
+docker compose exec app php artisan queue:work
+
+# Check failed jobs
+php artisan queue:failed
+
+# Retry failed jobs
+php artisan queue:retry all
+```
+
+### Performance Optimization
+
+```bash
+# Cache configuration (production)
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Optimize autoloader
+composer install --optimize-autoloader --no-dev
+
+# Clear all caches (development)
+php artisan optimize:clear
+```
+
+### Getting Help
+
+- **Documentation**: See full [Laravel documentation](https://laravel.com/docs)
+- **Docker Docs**: See [Docker documentation](https://docs.docker.com)
+- **GitHub Issues**: Report bugs at the repository issues page
+- **Logs**: Always check `storage/logs/laravel.log` for detailed error messages
 
 ## Implementation Summary
 
@@ -443,10 +841,38 @@ This e-commerce microservices system has been successfully implemented with:
 
 The system is production-ready and follows Laravel best practices with proper error handling, validation, and transaction management.
 
-## Notes
+## Technical Notes
 
 - Email service is decoupled and won't fail orders if email sending fails
 - All monetary values stored as decimals with 2 decimal places
 - Stock automatically decremented on successful order
 - Orders include snapshot of product prices at time of purchase
 - Order numbers are unique and generated automatically
+- Session-based authentication is used (not Sanctum) for simplicity and security
+- Frontend built with Vue 3, Inertia.js, and Tailwind CSS v4
+- Database supports both SQLite (development) and MySQL (production)
+
+## Project Structure
+
+```
+ecommerce/
+├── app/
+│   ├── Http/Controllers/      # API and Web Controllers
+│   ├── Models/                 # Eloquent Models
+│   ├── Services/               # Business Logic (Microservices)
+│   └── Mail/                   # Email Templates
+├── database/
+│   ├── migrations/             # Database Schema
+│   ├── seeders/                # Test Data
+│   └── factories/              # Model Factories
+├── resources/
+│   ├── js/                     # Vue Components & Frontend
+│   └── views/                  # Blade Templates
+├── routes/
+│   ├── web.php                 # Web Routes
+│   └── api.php                 # API Routes
+├── tests/                      # PHPUnit Tests
+├── docker-compose.yml          # Docker Configuration
+├── Dockerfile                  # Docker Image Definition
+└── README.md                   # This File
+```
