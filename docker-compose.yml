@@ -1,0 +1,88 @@
+services:
+  # Application Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-app
+    container_name: ecommerce-app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - ./storage:/var/www/html/storage
+    networks:
+      - ecommerce-network
+    depends_on:
+      - db
+      - redis
+
+  # Nginx Service
+  nginx:
+    image: nginx:alpine
+    container_name: ecommerce-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - ecommerce-network
+    depends_on:
+      - app
+
+  # MySQL Service
+  db:
+    image: mysql:8.0
+    container_name: ecommerce-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-ecommerce}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
+      MYSQL_USER: ${DB_USERNAME:-ecommerce_user}
+    ports:
+      - "3307:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - ecommerce-network
+
+  # Redis Service
+  redis:
+    image: redis:alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - ecommerce-network
+
+  # Queue Worker Service
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecommerce-queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan queue:work --sleep=3 --tries=3
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - ecommerce-network
+    depends_on:
+      - app
+      - db
+      - redis
+
+# Docker Networks
+networks:
+  ecommerce-network:
+    driver: bridge
+
+# Volumes
+volumes:
+  db-data:
+    driver: local
