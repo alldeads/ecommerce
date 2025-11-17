@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Laravel Deployment Stack on EC2 (no DB, HTTP only, latest Amazon Linux 2023 AMI)
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair
+    Type: AWS::EC2::KeyPair::KeyName
+
+  LatestAmazonLinux2023Ami:
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2023-ami-kernel-default-x86_64'
+
+Resources:
+
+  LaravelSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and SSH
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0   # Change to your IP for production
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  LaravelEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: !Ref KeyName
+      ImageId: !Ref LatestAmazonLinux2023Ami
+      SecurityGroups:
+        - !Ref LaravelSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+
+          # Update packages
+          dnf update -y
+
+          # Install Docker
+          dnf install -y docker
+          systemctl enable docker
+          systemctl start docker
+
+          # Create web directory
+          mkdir -p /var/www
+          cd /var/www
+
+          # Clone Laravel repository
+          git clone https://github.com/alldeads/ecommerce.git laravel-app
+          cd laravel-app
+
+          # Build Laravel Docker image
+          docker build -t laravel-app .
+
+          # Run Laravel Docker container
+          docker run -d --name laravel-container -p 80:80 -v /var/www/laravel-app:/var/www/laravel-app laravel-app
+
+Outputs:
+  EC2PublicIP:
+    Description: Public IP of the EC2 instance
+    Value: !GetAtt LaravelEC2Instance.PublicIp

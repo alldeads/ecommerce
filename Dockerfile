@@ -26,6 +26,10 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . /var/www/html
 RUN chown -R www-data:www-data /var/www/html
 
+# Copy .env file
+COPY .env /var/www/html/.env
+RUN chown www-data:www-data /var/www/html/.env
+
 # Install PHP dependencies
 RUN composer install --no-interaction --no-dev --optimize-autoloader
 
