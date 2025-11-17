@@ -2,6 +2,96 @@
 
 A Laravel-based e-commerce system with 3 microservices architecture: Catalog, Checkout, and Email services.
 
+## Quick Start with Docker
+
+The easiest way to run this project is using Docker. Everything is containerized and ready to go!
+
+### Prerequisites
+
+- Docker Desktop installed on your machine
+- Docker Compose (included with Docker Desktop)
+
+### Running the Application
+
+1. **Clone the repository**
+
+    ```bash
+    git clone <repository-url>
+    cd ecommerce
+    ```
+
+2. **Start Docker containers**
+
+    ```bash
+    docker compose up -d
+    ```
+
+    This will start:
+    - PHP-FPM (app)
+    - Nginx web server (port 8000)
+    - MySQL database (port 3307)
+    - Redis cache (port 6379)
+    - Queue worker
+
+3. **Run the setup script**
+
+    ```bash
+    ./docker-setup.sh
+    ```
+
+    Or manually run:
+
+    ```bash
+    docker compose exec app composer install
+    docker compose exec app npm install
+    docker compose exec app npm run build
+    docker compose exec app php artisan key:generate
+    docker compose exec app php artisan migrate --seed
+    ```
+
+4. **Access the application**
+    - **Web Application**: http://localhost:8000
+    - **Database**: localhost:3307 (MySQL)
+    - **Default Login**: test@example.com / password
+
+### Useful Docker Commands
+
+```bash
+# View running containers
+docker compose ps
+
+# View logs
+docker compose logs -f app
+
+# Stop containers
+docker compose down
+
+# Rebuild containers (after Dockerfile changes)
+docker compose build --no-cache
+docker compose up -d
+
+# Run artisan commands
+docker compose exec app php artisan [command]
+
+# Run npm commands
+docker compose exec app npm run [command]
+
+# Access database
+docker compose exec db mysql -u root -p
+
+# Access container shell
+docker compose exec app bash
+```
+
+### Environment Configuration
+
+The Docker setup uses `.env.docker` which is pre-configured for the containerized environment. Key settings:
+
+- **Database**: MySQL on `db:3306` (external port 3307)
+- **Redis**: Available on `redis:6379`
+- **Mail**: Uses MailHog on `mailhog:1025`
+- **App URL**: http://localhost:8000
+
 ## Architecture Overview
 
 ### 1. Catalog Service
@@ -182,6 +272,12 @@ Authorization: Session Cookie (auth middleware)
 ```
 
 ## Setup Instructions
+
+### Option 1: Docker (Recommended)
+
+See the [Quick Start with Docker](#quick-start-with-docker) section at the top of this document.
+
+### Option 2: Local Development (Without Docker)
 
 ### 1. Install Dependencies
 
